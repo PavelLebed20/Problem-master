@@ -4,6 +4,8 @@
 #include "IProblem.h"
 #include "IBrocker.h"
 
+// Solve problem min of x^2 - 2 * a * x, where x is argument, a is parameter
+
 class SHARED_EXPORT Problem : IProblem, IBrocker
 {
 public:
@@ -34,9 +36,6 @@ public:
     void* getInterfaceImpl(Type type) const;
     int release();
 private:
-    ErrorEnum checkNullAndDimArgs(IVector const*  args) const;
-    ErrorEnum checkNullAndDimParams(IVector const*  params) const;
-
     size_t m_paramsDim;
     size_t m_argsDim;
     IVector const* m_params;

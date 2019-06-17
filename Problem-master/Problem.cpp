@@ -5,8 +5,12 @@
 #include <math.h>
 #include <string.h>
 
+// Solve problem min of x^2 - 2 * a * x, where x is argument, a is parameter
+
+#define CALC_VAL(arg, param) ((arg) * (arg) - 2 * (arg) * (param))
+
 #define REPORT(MSG) \
-    QString qmsg("[PROBLEM_IK6]:  "); \
+    QString qmsg("[PROBLEM_PL6]:  "); \
     qmsg += QString(MSG); \
     qmsg += "\n\t\tFile: "; \
     qmsg += __FILE__; \
@@ -23,88 +27,58 @@ extern "C" {
     }
 }
 
-ErrorEnum Problem::checkNullAndDimArgs(const IVector *args) const
-{
-    if (args == NULL)
-    {
-        REPORT("Empty arguments");
-        return ERR_WRONG_ARG;
-    }
-    if (args->getDim() != m_argsDim)
-    {
-        REPORT("Dimensions mismatch");
+#define CHECK_DIM(name) \
+    if ((name) == NULL) \
+        return ERR_WRONG_ARG; \
+    if ((name)->getDim() != 1) \
         return ERR_DIMENSIONS_MISMATCH;
-    }
-    return ERR_OK;
-}
-
-ErrorEnum Problem::checkNullAndDimParams(const IVector *params) const
-{
-    if (params != NULL)
-    {
-        REPORT("Params must be null");
-        return ERR_DIMENSIONS_MISMATCH;
-    }
-    return ERR_OK;
-}
 
 int Problem::goalFunction(IVector const* args, IVector const* params, double& res) const
 {
-    ErrorEnum err = checkNullAndDimArgs(args);
-    if (err != ERR_OK)
-    {
-        return err;
-    }
-    err = checkNullAndDimParams(params);
-    if (err != ERR_OK)
-    {
-        return err;
-    }
+    CHECK_DIM(args);
+    CHECK_DIM(params);
 
-    double x1, x2;
-    args->getCoord(0, x1);
-    args->getCoord(1, x2);
+    double arg, param;
+    args->getCoord(0, arg);
+    params->getCoord(0, param);
 
-    res = pow(x1, 4) + 2 * pow(x2, 4) + x1 * x1 * x2 * x2 + 2 * x1 + x2;
+    res = CALC_VAL(arg, param);
 
     return ERR_OK;
 }
 
-int Problem::goalFunctionByArgs(IVector const*  args, double& res) const
+int Problem::goalFunctionByArgs(IVector const* args, double& res) const
 {
-    ErrorEnum err = checkNullAndDimArgs(args);
-    if (err != ERR_OK)
+    if (m_params == NULL)
     {
-        return err;
+        REPORT("Params was not set");
+        return ERR_WRONG_ARG;
     }
+    CHECK_DIM(args);
+    double arg, param;
+    args->getCoord(0, arg);
+    m_params->getCoord(0, param);
 
-    double x1, x2;
-    args->getCoord(0, x1);
-    args->getCoord(1, x2);
-
-    res = pow(x1, 4) + 2 * pow(x2, 4) + x1 * x1 * x2 * x2 + 2 * x1 + x2;
+    res = CALC_VAL(arg, param);
 
     return ERR_OK;
 }
+
 
 int Problem::goalFunctionByParams(IVector const*  params, double& res) const
 {
-    ErrorEnum err = checkNullAndDimParams(params);
-    if (err != ERR_OK)
-    {
-        return err;
-    }
     if (m_args == NULL)
     {
-        REPORT("Must call setArgs()");
+        REPORT("Arguments was not set");
         return ERR_WRONG_ARG;
     }
+    CHECK_DIM(params);
 
-    double x1, x2;
-    m_args->getCoord(0, x1);
-    m_args->getCoord(1, x2);
+    double arg, param;
+    m_args->getCoord(0, arg);
+    params->getCoord(0, param);
 
-    res = pow(x1, 4) + 2 * pow(x2, 4) + x1 * x1 * x2 * x2 + 2 * x1 + x2;
+    res = CALC_VAL(arg, param);
 
     return ERR_OK;
 }
@@ -123,101 +97,59 @@ int Problem::getParamsDim(size_t& dim) const
 
 int Problem::setParams(IVector const* params)
 {
-    ErrorEnum err = checkNullAndDimParams(params);
-    if (err != ERR_OK)
-    {
-        return err;
-    }
+    CHECK_DIM(params);
+    delete m_params;
     m_params = params->clone();
     return ERR_OK;
 }
 
 int Problem::setArgs(IVector const* args)
 {
-    ErrorEnum err = checkNullAndDimArgs(args);
-    if (err != ERR_OK)
-    {
-        return err;
-    }
+    CHECK_DIM(args);
+    delete m_args;
     m_args = args->clone();
     return ERR_OK;
 }
 
-int Problem::derivativeGoalFunction(size_t order, size_t idx, DerivedType dr, double& value, IVector const* args, IVector const* params) const
+int Problem::derivativeGoalFunction(size_t order, size_t idx, DerivedType dr, double& value,
+                                    IVector const* args, IVector const* params) const
 {
-    ErrorEnum err = checkNullAndDimArgs(args);
-    if (err != ERR_OK)
+    if (order == 0)
+        return goalFunction(args, params, value);
+
+    CHECK_DIM(args);
+    CHECK_DIM(params);
+
+    if (idx != 0)
     {
-        return err;
-    }
-    err = checkNullAndDimParams(params);
-    if (err != ERR_OK)
-    {
-        return err;
-    }
-    if (dr == BY_PARAMS)
-    {
-        REPORT("Can't derivative by params");
-        return ERR_ANY_OTHER;
-    }
-    if (idx >= m_argsDim)
-    {
-        REPORT("Derivative idx is out of range");
-        return ERR_OUT_OF_RANGE;
+        REPORT("Wrong idx");
+        return ERR_WRONG_ARG;
     }
 
-    double x1, x2;
-    args->getCoord(0, x1);
-    args->getCoord(1, x2);
+    double arg, param;
+    args->getCoord(0, arg);
+    params->getCoord(0, param);
 
-    switch (order)
+    if (dr == BY_ARGS)
     {
-    case 0:
-        value = pow(x1, 4) + 2 * pow(x2, 4) + x1 * x1 * x2 * x2 + 2 * x1 + x2;
-        break;
-    case 1:
-        if (idx == 0)
-        {
-            value = 4 * pow(x1, 3) + 2 * x1 * x2 * x2 + 2;
-        }
+        if (order == 1)
+            value =  2 * arg - 2 * param;
+        else if (order == 2)
+            value = 2;
         else
-        {
-            value = 2 * x1 * x1 * x2 + 8 * pow(x2, 3) + 1;
-        }
-        break;
-    case 2:
-        if (idx == 0)
-        {
-            value = 12 * x1 * x1 + 2 * x2 * x2;
-        }
+            value = 0;
+
+    } else if (dr == BY_PARAMS)
+    {
+        if (order == 1)
+            value = -2 * arg;
         else
-        {
-            value = 2 * x1 * x1 + 24 * x2 * x2;
-        }
-        break;
-    case 3:
-        if (idx == 0)
-        {
-            value = 24 * x1;
-        }
-        else
-        {
-            value = 48 * x2;
-        }
-        break;
-    case 4:
-        if (idx == 0)
-        {
-            value = 24;
-        }
-        else
-        {
-            value = 48;
-        }
-        break;
-    default:
-        value = 0;
-        break;
+            value = 0;
+    }
+    else
+    {
+        REPORT("Wrong derivative type param");
+        return ERR_WRONG_ARG;
     }
 
     return ERR_OK;
@@ -225,74 +157,46 @@ int Problem::derivativeGoalFunction(size_t order, size_t idx, DerivedType dr, do
 
 int Problem::derivativeGoalFunctionByArgs(size_t order, size_t idx, DerivedType dr, double& value, IVector const* args) const
 {
-    ErrorEnum err = checkNullAndDimArgs(args);
-    if (err != ERR_OK)
+    if (order == 0)
+        return goalFunctionByArgs(args, value);
+
+    if (m_params == NULL)
     {
-        return err;
+        REPORT("Params was not set");
+        return ERR_WRONG_ARG;
     }
-    if (dr == BY_PARAMS)
+    CHECK_DIM(args);
+
+    if (idx != 0)
     {
-        REPORT("Can't derivative by params");
-        return ERR_ANY_OTHER;
-    }
-    if (idx >= m_argsDim)
-    {
-        REPORT("Derivative idx is out of range");
-        return ERR_OUT_OF_RANGE;
+        REPORT("Wrong idx");
+        return ERR_WRONG_ARG;
     }
 
-    double x1, x2;
-    args->getCoord(0, x1);
-    args->getCoord(1, x2);
+    double arg, param;
+    args->getCoord(0, arg);
+    m_params->getCoord(0, param);
 
-    switch (order)
+    if (dr == BY_ARGS)
     {
-    case 0:
-        value = pow(x1, 4) + 2 * pow(x2, 4) + x1 * x1 * x2 * x2 + 2 * x1 + x2;
-        break;
-    case 1:
-        if (idx == 0)
-        {
-            value = 4 * pow(x1, 3) + 2 * x1 * x2 * x2 + 2;
-        }
+        if (order == 1)
+            value =  2 * arg - 2 * param;
+        else if (order == 2)
+            value = 2;
         else
-        {
-            value = 2 * x1 * x1 * x2 + 8 * pow(x2, 3) + 1;
-        }
-        break;
-    case 2:
-        if (idx == 0)
-        {
-            value = 12 * x1 * x1 + 2 * x2 * x2;
-        }
+            value = 0;
+
+    } else if (dr == BY_PARAMS)
+    {
+        if (order == 1)
+            value = -2 * arg;
         else
-        {
-            value = 2 * x1 * x1 + 24 * x2 * x2;
-        }
-        break;
-    case 3:
-        if (idx == 0)
-        {
-            value = 24 * x1;
-        }
-        else
-        {
-            value = 48 * x2;
-        }
-        break;
-    case 4:
-        if (idx == 0)
-        {
-            value = 24;
-        }
-        else
-        {
-            value = 48;
-        }
-        break;
-    default:
-        value = 0;
-        break;
+            value = 0;
+    }
+    else
+    {
+        REPORT("Wrong derivative type param");
+        return ERR_WRONG_ARG;
     }
 
     return ERR_OK;
@@ -300,25 +204,59 @@ int Problem::derivativeGoalFunctionByArgs(size_t order, size_t idx, DerivedType 
 
 int Problem::derivativeGoalFunctionByParams(size_t order, size_t idx, DerivedType dr, double& value, IVector const* params) const
 {
-    REPORT("Problem has no params");
-    return ERR_ANY_OTHER;
+    if (order == 0)
+        return goalFunctionByParams(params, value);
+
+    if (m_args == NULL)
+    {
+        REPORT("Args was not set");
+        return ERR_WRONG_ARG;
+    }
+    CHECK_DIM(params);
+
+    if (idx != 0)
+    {
+        REPORT("Wrong idx");
+        return ERR_WRONG_ARG;
+    }
+
+    double arg, param;
+    m_args->getCoord(0, arg);
+    params->getCoord(0, param);
+
+    if (dr == BY_ARGS)
+    {
+        if (order == 1)
+            value =  2 * arg - 2 * param;
+        else if (order == 2)
+            value = 2;
+        else
+            value = 0;
+
+    } else if (dr == BY_PARAMS)
+    {
+        if (order == 1)
+            value = -2 * arg;
+        else
+            value = 0;
+    }
+    else
+    {
+        REPORT("Wrong derivative type param");
+        return ERR_WRONG_ARG;
+    }
+
+    return ERR_OK;
 }
 
 Problem::~Problem()
 {
-    if (m_args != NULL)
-    {
-        delete m_args;
-    }
-    if (m_params != NULL)
-    {
-        delete m_params;
-    }
-    ILog::destroy();
+    delete m_args;
+    delete m_params;
 }
 
 Problem::Problem() :
-    m_paramsDim(0), m_argsDim(2),
+    m_paramsDim(1), m_argsDim(1),
     m_params(NULL), m_args(NULL)
 {
 }
@@ -339,13 +277,10 @@ void* Problem::getInterfaceImpl(Type type) const
 
 int Problem::release()
 {
-    if (m_args != NULL)
-    {
-        delete m_args;
-    }
-    if (m_params != NULL)
-    {
-        delete m_params;
-    }
+    delete m_args;
+    delete m_params;
+
+    m_args = NULL;
+    m_params = NULL;
     return ERR_OK;
 }
